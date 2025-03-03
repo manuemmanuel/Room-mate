@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -18,34 +18,28 @@ export default function AdminDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [stats, setStats] = useState({
     totalStudents: 0,
-    pendingRequests: 0,
     totalComplaints: 0,
   });
 
   useEffect(() => {
-    console.log('Dashboard mounted');
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        console.log('Starting to fetch data');
-        
-        await Promise.all([
-          fetchAdminData(),
-          fetchDashboardStats(),
-          fetchStudents()
-        ]);
-        
-        console.log('All data fetched successfully');
-      } catch (error) {
-        console.error('Error loading dashboard:', error);
-        Alert.alert('Error', 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchAdminData(),
+        fetchDashboardStats(),
+        fetchStudents()
+      ]);
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+      Alert.alert('Error', 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -105,14 +99,8 @@ export default function AdminDashboard() {
         .select('*', { count: 'exact' })
         .eq('status', 'pending');
 
-      const { count: requestsCount } = await supabase
-        .from('room_requests')
-        .select('*', { count: 'exact' })
-        .eq('status', 'pending');
-
       setStats({
         totalStudents: studentsCount || 0,
-        pendingRequests: requestsCount || 0,
         totalComplaints: complaintsCount || 0,
       });
     } catch (error) {
@@ -126,34 +114,14 @@ export default function AdminDashboard() {
       if (error) throw error;
       router.replace('/(auth)/admin');
     } catch (error: any) {
-      console.error('Error signing out:', error.message);
+      Alert.alert('Error', error.message);
     }
   };
-
-  const renderStudentCard = ({ item }: { item: Student }) => (
-    <View style={styles.studentCard}>
-      <View style={styles.studentHeader}>
-        <Text style={styles.studentName}>{item.full_name}</Text>
-        <Text style={styles.roomNumber}>Room {item.room_number || 'Not Assigned'}</Text>
-      </View>
-      
-      <View style={styles.studentStats}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{item.attendance_percentage || 0}%</Text>
-          <Text style={styles.statLabel}>Attendance</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{item.pending_complaints || 0}</Text>
-          <Text style={styles.statLabel}>Complaints</Text>
-        </View>
-      </View>
-    </View>
-  );
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text>Loading...</Text>
+        <Text style={styles.text}>Loading...</Text>
       </View>
     );
   }
@@ -161,34 +129,50 @@ export default function AdminDashboard() {
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
-        <View style={styles.header}>
+        {/* Profile Section */}
+        <View style={styles.profileSection}>
           <Text style={styles.welcomeText}>
             Welcome, {adminProfile?.hostel_name}
           </Text>
-          <TouchableOpacity onPress={handleSignOut} style={styles.signOutButton}>
+          <TouchableOpacity onPress={handleSignOut}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
+        {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{stats.totalStudents}</Text>
             <Text style={styles.statLabel}>Total Students</Text>
           </View>
+
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{stats.totalComplaints}</Text>
             <Text style={styles.statLabel}>Active Complaints</Text>
           </View>
         </View>
 
+        {/* Students List */}
         <Text style={styles.sectionTitle}>Student Overview</Text>
-        <FlatList
-          data={students}
-          renderItem={renderStudentCard}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false}
-          style={styles.studentList}
-        />
+        {students.map((student) => (
+          <View key={student.id} style={styles.studentCard}>
+            <View style={styles.studentHeader}>
+              <Text style={styles.studentName}>{student.full_name}</Text>
+              <Text style={styles.roomNumber}>Room {student.room_number || 'Not Assigned'}</Text>
+            </View>
+            
+            <View style={styles.studentStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{student.attendance_percentage || 0}%</Text>
+                <Text style={styles.statLabel}>Attendance</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{student.pending_complaints}</Text>
+                <Text style={styles.statLabel}>Complaints</Text>
+              </View>
+            </View>
+          </View>
+        ))}
       </View>
     </ScrollView>
   );
@@ -204,22 +188,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
   },
-  header: {
+  profileSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 30,
+    marginTop: 40, // Added top margin
   },
   welcomeText: {
     fontSize: 24,
     fontFamily: 'Aeonik-Bold',
   },
-  signOutButton: {
-    padding: 10,
-  },
   signOutText: {
     color: '#B3D8A8',
     fontFamily: 'Aeonik-Medium',
+  },
+  text: {
+    fontFamily: 'Aeonik-Regular',
+    fontSize: 16,
+    color: '#666',
   },
   statsContainer: {
     width: '100%',
@@ -245,9 +232,9 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: 'Aeonik-Bold',
-    marginBottom: 30,
+    marginBottom: 15,
   },
   studentCard: {
     width: '100%',
@@ -287,8 +274,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Aeonik-Bold',
     color: '#B3D8A8',
-  },
-  studentList: {
-    width: '100%',
   },
 });

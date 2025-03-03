@@ -17,7 +17,7 @@ export default function StudentLogin() {
       const { error } = await supabase.auth.signInWithPassword(formData);
       
       if (error) throw error;
-      router.replace('/(app)/student/dashboard');
+      router.replace('/(student)/dashboard');
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {
